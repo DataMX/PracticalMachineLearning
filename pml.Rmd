@@ -1,0 +1,81 @@
+---
+title: "Practical Machine Learning"
+author: "DataMx"
+date: "February 14, 2015"
+output:
+  html_document:
+    highlight: kate
+    theme: cosmo
+---
+##Overview
+
+This is the couse project write-up for Coursera's Practical Machine Learning by John Hopkins Univeristy.  The purpose of this class project was to take Weight Lifting Exercise Dataset from this source: <http://groupware.les.inf.puc-rio.br/har.see>, use it to build a model with cross validation that could then predict "how well the exercise was done" and describe the choices we made in model selection and the error our model contains.  
+
+##Data
+
+Data was collected from 6 particpants performing 5 sets of 10 dumbell curls while wearing accelerometers, gyroscopes and magnetometers on the belt, forearm, arm, and dumbells.  One set per participant was performed correctly, the others had different mistakes in form.  The [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) associated with the data is available. 
+
+##Reading and Cleaning data
+
+After downloading the data from the course website, the first step was to look at the data to assess what predictors were available.  From reading the accompanying [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) and browsing the data, required some cleaning.  The training dataset contains directly measurements and calculated measurements from time slices of the data.  The test set does not have the calculated data nor enough data to calculate the missing data. So, all columns in the test set with NAs were removed.  The training data was then subsetted to have the same columns with problem_id replacing classe.  The index(X), user-name, timestamp and window variables were also removed as they are not quality predictors for dumbell curls.
+
+```{r echo=TRUE}
+#Read Dowloaded files. Treat blanks and NAs as NA and string as factors
+pmltrain <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-training.csv", na.strings= c("NA", ""))
+pmltest <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-testing.csv", na.strings="NA")
+dim(pmltrain)
+dim(pmltest)
+#str(pmltrain) # used to investigate column types
+#str(pmltest) 
+testnona <- pmltest[ , colSums(is.na(pmltest)) == 0] #remove columns with blanks and NAs
+trainnona <- pmltrain[ , colSums(is.na(pmltrain)) == 0]
+trainnona <- trainnona[,8:60] # remove X, user_name, time and window variables
+testnona <- testnona[,8:60]
+dim(trainnona)
+dim(testnona)
+```
+## Machine Learning Model Prediction Choice
+After looking at the data it seemed as using Random Forest machine learning algorithm 
+could be useful as their are multiple predictors and I do not have a good feel for 
+which predictors or combination of predictors would be most useful and the predictors 
+seem a poor fit for a linear regression model without additional steps/information.  
+Using "rf" in the caret package was taking a long time so I switch to using 'randomForest' 
+directly.  I partition the training data into training and data for validation. 
+I used 
+``` {r message = FALSE}
+library (caret)
+library (randomForest)
+set.seed(61420) # for reproducibility
+
+InTrain<-createDataPartition(y=trainnona$classe,p=0.6,list=FALSE)
+trainnona1<-trainnona[InTrain,]
+validatenona2<-trainnona[-InTrain,]
+
+rfcv1 <- rfcv(trainnona[,1:52], trainnona$classe,  cv.fold = 6, data = trainnona1)
+#rf1 <- randomForest(trainnona1$classe ~ ., data = trainnona, importance = TRUE)
+#rf1<
+```
+### Validation and Error
+```{r }
+```
+
+## Submission of Predictions
+Function to convert test set predictions to individual files for submission.
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+#pml_write_files(as.charecter(answers))
+```
+#### License for Data
+Important: you are free to use this dataset for any purpose. This dataset is licensed under the Creative Commons license (CC BY-SA). The CC BY-SA license means you can remix, tweak, and build upon this work even for commercial purposes, as long as you credit the authors of the original work and you license your new creations under the identical terms we are licensing to you. This license is often compared to "copyleft" free and open source software licenses. All new works based on this dataset will carry the same license, so any derivatives will also allow commercial use.
+Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz3RiwCo6Bl>
+
+#### Paper reference
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
