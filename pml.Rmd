@@ -36,14 +36,14 @@ dim(trainnona)
 dim(testnona)
 ```
 ## Machine Learning Model Prediction Choice
-After looking at the data it seemed as using Random Forest machine learning algorithm 
-could be useful as their are multiple predictors and I do not have a good feel for 
+After looking at the data, it seemed as using Random Forest machine learning algorithm 
+could be useful as there are multiple predictors. Also, I do not have a good feel for 
 which predictors or combination of predictors would be most useful and the predictors 
-seem a poor fit for a linear regression model without additional steps/information.  
-Using `rf` in the `caret` package was taking a long time so I switch to using 'randomForest' package
-directly. The training data was partitioned into training and validation data. 
-I used `tuneRF` to investigate the best value for `mtry` as the default for classification is 
-sqrt(p), where p is the number of predictors being tested, in this case 7.  It appears to be optimized for this problem. I also tested using k-fold (k = 5) cross validation the number of model predictors. For the purposes of this project, I decided to use all predictors even though it was more costly in computationally.  The model parameters could be cut in halves or quarters and still have greater then 99% accuracy.
+are a poor fit for a linear regression model without additional steps or information.  
+Using `rf` method in the `caret` package took excessive computing time, so I switched to using the 'randomForest' package
+directly. The training data was partitioned into training and cross validation data. 
+I used `tuneRF` to investigate the best value for `mtry`. The default for classification is 
+sqrt(p), where p is the number of predictors being tested, in this case 7.  `Mtry` appears to be optimized for this problem. I also tested using k-fold (k = 5) cross validation on the number of model predictors. For the purposes of this project, I decided to use all predictors even though it was more costly in computationally.  The model parameters could be cut in halves or quarters and still have greater then 99% accuracy.  Using less model parameters, would be beneficial if there appeared to be overfitting.
 
 ``` {r randomforest, message = FALSE}
 library (caret)
@@ -56,9 +56,9 @@ InTrain<-createDataPartition(y=trainnona$classe, p=0.8,list=FALSE)
 trainnona1<-trainnona[InTrain,]
 validatenona2<-trainnona[-InTrain,]
 
-#investigate best value for mtry          
+#Investigate best value for mtry          
 tuneRF(trainnona1[,1:52], ntreeTry = 500, trainnona1$classe) 
-# Use k-fold cross validation (k=5) to investigate reducing number of predictors 
+#Use k-fold cross validation (k=5) to investigate reducing number of predictors 
 rfcv1 <- rfcv(trainnona1[,1:52], trainnona1$classe,  cv.fold = 5, data = trainnona1)
 with(rfcv1, plot(n.var, error.cv, log="x", type="o", lwd=2, main = "Cross Validated Error by Number of Variables"))
 
@@ -67,7 +67,7 @@ rf1 <- randomForest(trainnona1$classe ~ ., data = trainnona1, proximity = TRUE,
                     importance = TRUE)
 rf1
 varImpPlot(rf1, type = 1, main = "Variable Importance Plot")
-kable(rf1$confusion, digits = 4)
+kable(rf1$confusion, digits = 4, caption = "Confusion Matrix from Random Forest Training Set")
 oob <-1 - (rf1$confusion[1,1]+rf1$confusion[2,2]+rf1$confusion[3,3]+rf1$confusion[4,4]+rf1$confusion[5,5])/sum(rf1$confusion[,1:5])
 ```
 The varImpPlot shows which predictors (maxed out at 30 displayed) are contributing the most to the model.
@@ -76,11 +76,11 @@ The varImpPlot shows which predictors (maxed out at 30 displayed) are contributi
 ```{r validation, message=FALSE}
 library (knitr)
 prediction1 <- predict(rf1, validatenona2)
-kable(table(prediction1,validatenona2$classe), digits = 2)
+kable(table(prediction1,validatenona2$classe), digits = 2, caption = "Confusion Matrix from Validation Set")
 accuracy <- sum(prediction1==validatenona2$classe)/length(validatenona2$classe)
 ```
-This validation gives us an accuracy of **`r round(accuracy, 4)`.** and out of sample error rate of **`r (1-round(accuracy, 4))*100`**.
-Random Forest OOB estimates of error rate are considered unbiased and was calculated at **`r round(oob, 4)*100`%** showing us why random forest is not typically run with extra cross validation.  It is possible to overfit the data to model but as are training and validation have similar error rates, it is unlikely the model is overfit in this case.  
+This validation gives us an accuracy of **`r round(accuracy, 4)`**. and out of sample error rate of **`r (1-round(accuracy, 4))*100`%**.
+Random Forest OOB estimates of error rate are considered unbiased and was calculated at **`r round(oob, 4)*100`%** showing us why random forest is not typically run with extra cross validation.  It is possible to overfit the data to model but as the training and validation have similar error rates, it is unlikely the model is overfit in this case.  
 One of the ways to decrease overfitting is to use fewer parameters, so using the `rfcv` function could helps us determine how many parameters to use.
 
 From the results of the cross validation, I feel like this particular Random Forest model should do a good job of fitting the test data.
@@ -104,12 +104,15 @@ pml_write_files = function(x){
 }
 pml_write_files(as.character(answers))
 ```
-
+Twenty out of twenty predictions were correct.
+  
 #### License for Data
 Important: you are free to use this dataset for any purpose. This dataset is licensed under the Creative Commons license (CC BY-SA). The CC BY-SA license means you can remix, tweak, and build upon this work even for commercial purposes, as long as you credit the authors of the original work and you license your new creations under the identical terms we are licensing to you. This license is often compared to "copyleft" free and open source software licenses. All new works based on this dataset will carry the same license, so any derivatives will also allow commercial use.
 Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz3RiwCo6Bl>
 
 #### Paper reference
 Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+This html file can be found at <http://DataMX.github.io/PracticalMachineLearning>
 
 
