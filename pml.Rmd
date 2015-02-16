@@ -4,25 +4,26 @@ author: "DataMx"
 date: "February 14, 2015"
 output:
   html_document:
-    highlight: kate
     theme: cosmo
 ---
 ##Overview
 
-This is the couse project write-up for Coursera's Practical Machine Learning by John Hopkins Univeristy.  The purpose of this class project was to take Weight Lifting Exercise Dataset from this source: <http://groupware.les.inf.puc-rio.br/har.see>, use it to build a model with cross validation that could then predict "how well the exercise was done" and describe the choices we made in model selection and the error our model contains.  
+This is the course project write-up for Coursera's Practical Machine Learning by John Hopkins University.  The purpose of this class project was to take Weight Lifting Exercise Dataset from this source: <http://groupware.les.inf.puc-rio.br/har.see>, use it to build a model with cross validation that could then predict "how well the exercise was done" and describe the choices we made in model selection and the error our model contains.  
 
 ##Data
 
-Data was collected from 6 particpants performing 5 sets of 10 dumbell curls while wearing accelerometers, gyroscopes and magnetometers on the belt, forearm, arm, and dumbells.  One set per participant was performed correctly, the others had different mistakes in form.  The [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) associated with the data is available. 
+Data was collected from 6 participants performing 5 sets of 10 dumbbell curls while wearing accelerometers, gyroscopes and magnetometers on the belt, forearm, arm, and dumbbells.  One set per participant was performed correctly, the others had different mistakes in form.  The [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) associated with the data is available. 
 
 ##Reading and Cleaning data
 
-After downloading the data from the course website, the first step was to look at the data to assess what predictors were available.  From reading the accompanying [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) and browsing the data, required some cleaning.  The training dataset contains directly measurements and calculated measurements from time slices of the data.  The test set does not have the calculated data nor enough data to calculate the missing data. So, all columns in the test set with NAs were removed.  The training data was then subsetted to have the same columns with problem_id replacing classe.  The index(X), user-name, timestamp and window variables were also removed as they are not quality predictors for dumbell curls.
+After downloading the data from the course website, the first step was to look at the data to assess what predictors were available.  From reading the accompanying [paper](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf) and browsing the data, it required some cleaning.  The training dataset contains direct measurements and calculated measurements from time slices of the data.  The test set does not have the calculated data nor enough data to calculate the missing data. So, all columns in the test set with NAs were removed.  The training data was then subsetted to have the same columns except problem_id replaced classe.  The index(X), user-name, timestamp and window variables were also removed as they are not quality predictors for dumbbell curls.
 
-```{r echo=TRUE}
+```{r readdata, echo=TRUE}
 #Read Dowloaded files. Treat blanks and NAs as NA and string as factors
-pmltrain <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-training.csv", na.strings= c("NA", ""))
-pmltest <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-testing.csv", na.strings="NA")
+pmltrain <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-training.csv",
+                    na.strings= c("NA", ""))
+pmltest <- read.csv("~/Documents/Coursera_Data/PracticalMachineLearning/pml-testing.csv", 
+                    na.strings="NA")
 dim(pmltrain)
 dim(pmltest)
 #str(pmltrain) # used to investigate column types
@@ -39,29 +40,61 @@ After looking at the data it seemed as using Random Forest machine learning algo
 could be useful as their are multiple predictors and I do not have a good feel for 
 which predictors or combination of predictors would be most useful and the predictors 
 seem a poor fit for a linear regression model without additional steps/information.  
-Using "rf" in the caret package was taking a long time so I switch to using 'randomForest' 
-directly.  I partition the training data into training and data for validation. 
-I used 
-``` {r message = FALSE}
+Using `rf` in the `caret` package was taking a long time so I switch to using 'randomForest' package
+directly. The training data was partitioned into training and validation data. 
+I used `tuneRF` to investigate the best value for `mtry` as the default for classification is 
+sqrt(p), where p is the number of predictors being tested, in this case 7.  It appears to be optimized for this problem. I also tested using k-fold (k = 5) cross validation the number of model predictors. For the purposes of this project, I decided to use all predictors even though it was more costly in computationally.  The model parameters could be cut in halves or quarters and still have greater then 99% accuracy.
+
+``` {r randomforest, message = FALSE}
 library (caret)
 library (randomForest)
+library (knitr)
 set.seed(61420) # for reproducibility
 
-InTrain<-createDataPartition(y=trainnona$classe,p=0.6,list=FALSE)
+#Create 80/20 training/validation set
+InTrain<-createDataPartition(y=trainnona$classe, p=0.8,list=FALSE)
 trainnona1<-trainnona[InTrain,]
 validatenona2<-trainnona[-InTrain,]
 
-rfcv1 <- rfcv(trainnona[,1:52], trainnona$classe,  cv.fold = 6, data = trainnona1)
-#rf1 <- randomForest(trainnona1$classe ~ ., data = trainnona, importance = TRUE)
-#rf1<
+#investigate best value for mtry          
+tuneRF(trainnona1[,1:52], ntreeTry = 500, trainnona1$classe) 
+# Use k-fold cross validation (k=5) to investigate reducing number of predictors 
+rfcv1 <- rfcv(trainnona1[,1:52], trainnona1$classe,  cv.fold = 5, data = trainnona1)
+with(rfcv1, plot(n.var, error.cv, log="x", type="o", lwd=2, main = "Cross Validated Error by Number of Variables"))
+
+#RandomForest with defaults for mtry and all predictors
+rf1 <- randomForest(trainnona1$classe ~ ., data = trainnona1, proximity = TRUE, 
+                    importance = TRUE)
+rf1
+varImpPlot(rf1, type = 1, main = "Variable Importance Plot")
+kable(rf1$confusion, digits = 4)
+oob <-1 - (rf1$confusion[1,1]+rf1$confusion[2,2]+rf1$confusion[3,3]+rf1$confusion[4,4]+rf1$confusion[5,5])/sum(rf1$confusion[,1:5])
 ```
-### Validation and Error
-```{r }
+The varImpPlot shows which predictors (maxed out at 30 displayed) are contributing the most to the model.
+
+### Validation 
+```{r validation, message=FALSE}
+library (knitr)
+prediction1 <- predict(rf1, validatenona2)
+kable(table(prediction1,validatenona2$classe), digits = 2)
+accuracy <- sum(prediction1==validatenona2$classe)/length(validatenona2$classe)
 ```
+This validation gives us an accuracy of **`r round(accuracy, 4)`.** and out of sample error rate of **`r (1-round(accuracy, 4))*100`**.
+Random Forest OOB estimates of error rate are considered unbiased and was calculated at **`r round(oob, 4)*100`%** showing us why random forest is not typically run with extra cross validation.  It is possible to overfit the data to model but as are training and validation have similar error rates, it is unlikely the model is overfit in this case.  
+One of the ways to decrease overfitting is to use fewer parameters, so using the `rfcv` function could helps us determine how many parameters to use.
+
+From the results of the cross validation, I feel like this particular Random Forest model should do a good job of fitting the test data.
+
+## Prediction of Test Values
+``` {r prediction}
+answers <- predict(rf1, testnona)
+```
+I then convert the predictions into individual files for submission on the
+course webpage.
 
 ## Submission of Predictions
 Function to convert test set predictions to individual files for submission.
-```{r}
+```{r submission}
 pml_write_files = function(x){
   n = length(x)
   for(i in 1:n){
@@ -69,8 +102,9 @@ pml_write_files = function(x){
     write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
   }
 }
-#pml_write_files(as.charecter(answers))
+pml_write_files(as.character(answers))
 ```
+
 #### License for Data
 Important: you are free to use this dataset for any purpose. This dataset is licensed under the Creative Commons license (CC BY-SA). The CC BY-SA license means you can remix, tweak, and build upon this work even for commercial purposes, as long as you credit the authors of the original work and you license your new creations under the identical terms we are licensing to you. This license is often compared to "copyleft" free and open source software licenses. All new works based on this dataset will carry the same license, so any derivatives will also allow commercial use.
 Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz3RiwCo6Bl>
