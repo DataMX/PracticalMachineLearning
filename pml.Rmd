@@ -113,6 +113,6 @@ Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz3RiwCo6Bl>
 #### Paper reference
 Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
 
-This html file can be found at <http://DataMX.github.io/PracticalMachineLearning>
+This html file can be found at <http://datamx.github.io/PracticalMachineLearning/pml.html>
 
 
